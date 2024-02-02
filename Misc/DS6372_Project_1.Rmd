@@ -8,21 +8,93 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 # setwd("~/OneDrive - Southern Methodist University/Git_Website/DS6372_Project1")
+library(ggthemes)
+library(gridExtra)
+library(ggplot2)
+library(GGally)
+library(dplyr)
+library(tidyr)
+library(knitr)
+library(caret)
 ```
 
 ## Life Expectancy Data Set
 
 ```{r}
 life <- read.csv("Data/Life_Expectancy_Data.csv")
+summary(life)
+sapply(life, class)
+
+```
+
+## Preliminary Data Wrangling
+
+Explanatory variable is Life.expectancy. Therefore, before starting the EDA, any rows missing the explanatory variable will be filtered out.
+
+```{r}
+missing_life_expectancy <- life %>% select(Life.expectancy) %>% sapply(function(x) sum(is.na(x)))
+print(missing_life_expectancy)
+#Remove all rows that have missing values of our explanatory variable Life.expectancy
+life <- life %>%
+  filter(!is.na(Life.expectancy))
+
+# To see the first few rows of the filtered data frame
+head(life)
+```
+
+There are two categories that are not numerical, so lets take a look at the distributions of Countries and Status
+
+```{r Distribution and uniqueness of Countries}
+## Determine number of unique Countries
+unique(life$Country)
+## Create a table with number of observations
+obs_per_country <- table(life$Country)  
+## Convert to dataframe to visualize
+df_obs_per_country <- as.data.frame(obs_per_country, stringsAsFactors = FALSE)
+unique(df_obs_per_country$Freq)
+
+```
+
+-   All of the countries have the same number of observations, 16.
+
+```{r Distribution of Status}
+# Visualize the distribution of Status
+ggplot(life, aes(x=Status)) +
+  geom_bar(fill = "blue") +
+  theme_minimal() +
+  labs(title="Distribution of Status", x="Status", y="Count")
 ```
 
 Section to describe the data set and explanatory variable.
 
-#### Preliminary EDA
-
+## EDA
+### Missing and NA Analysis
 ```{r}
+sapply(life, function(x) sum(is.na(x)))
+missing_count <- life %>% select(-Life.expectancy) %>% sapply(function(x) sum(is.na(x)))
+missing_table <- as.data.frame(missing_count) %>%
+  filter(missing_count >= 1) %>% arrange(desc(missing_count))
+print(missing_table)
+
+# Sort data frame by the number of missing values
+# Adding an ID column to dataframe
+life$ID <- 1:nrow(life)
+
+# Calculate the number of missing values per observation
+life$MissingCount = rowSums(is.na(life))
+
+# Create a new table with ID and MissingCount
+missing_values_summary <- data.frame(ID = life$ID, MissingCount = life$MissingCount)
+
+# Sort the summary table by MissingCount in descending order
+missing_values_summary <- missing_values_summary[order(-missing_values_summary$MissingCount), ]
+
+# Display the sorted summary table
+head(missing_values_summary)
 
 ```
+
+Write something about the missing values.....
 
 ## Objective 1
 
