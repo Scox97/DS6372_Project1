@@ -1,0 +1,55 @@
+---
+title: "DS6372 Project 1"
+author: "Caleb Thornsbury,  Stephanie Duarte, Steven Cox"
+date: "2024-02-02"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+# setwd("~/OneDrive - Southern Methodist University/Git_Website/DS6372_Project1")
+```
+
+## Life Expectancy Data Set
+
+```{r}
+life <- read.csv("Data/Life_Expectancy_Data.csv")
+```
+
+Section to describe the data set and explanatory variable.
+
+#### Preliminary EDA
+
+```{r}
+
+```
+
+## Objective 1
+
+Purpose: Display the ability to build regression models using the skills and discussions from Unit 1, 2, and 3 with the purpose of identifying key relationships and interpreting those relationships in an organized and clear fashion (Unit 4) .
+
+```{r}
+
+```
+
+## Objective 2
+
+Purpose: This objective is to go through a process to compare multiple models with the goal of developing a model that can predict the best and do well on future data. \*Use caret library to help ensure model comparisons are on a “apples to apples” level of comparison.  Consider setting the seed each time you run a new model and perform CV.
+
+-   Feature Selection
+
+```{r}
+
+```
+
+-   Cross-Validation
+
+```{r}
+
+```
+
+-   Bootstrapping????
+
+```{r}
+
+```
