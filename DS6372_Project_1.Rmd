@@ -16,14 +16,19 @@ library(dplyr)
 library(tidyr)
 library(knitr)
 library(caret)
+library(countrycode)
+library(car)
+library(olsrr)
+library(glmnet)
+
 ```
 
 ## Life Expectancy Data Set
 
-```{r}
-life <- read.csv("Data/Life_Expectancy_Data.csv")
-summary(life)
-sapply(life, class)
+```{r , warning=FALSE}
+life_orig <- read.csv("Data/Life_Expectancy_Data.csv")
+summary(life_orig)
+sapply(life_orig, class)
 
 ```
 
@@ -31,45 +36,22 @@ sapply(life, class)
 
 Explanatory variable is Life.expectancy. Therefore, before starting the EDA, any rows missing the explanatory variable will be filtered out.
 
-```{r}
-missing_life_expectancy <- life %>% select(Life.expectancy) %>% sapply(function(x) sum(is.na(x)))
+```{r , warning=FALSE}
+missing_life_expectancy <- life_orig %>% select(Life.expectancy) %>% sapply(function(x) sum(is.na(x)))
 print(missing_life_expectancy)
 #Remove all rows that have missing values of our explanatory variable Life.expectancy
-life <- life %>%
+life <- life_orig %>%
   filter(!is.na(Life.expectancy))
 
 # To see the first few rows of the filtered data frame
 head(life)
 ```
 
-There are two categories that are not numerical, so lets take a look at the distributions of Countries and Status
-
-```{r Distribution and uniqueness of Countries}
-## Determine number of unique Countries
-unique(life$Country)
-## Create a table with number of observations
-obs_per_country <- table(life$Country)  
-## Convert to dataframe to visualize
-df_obs_per_country <- as.data.frame(obs_per_country, stringsAsFactors = FALSE)
-unique(df_obs_per_country$Freq)
-
-```
-
--   All of the countries have the same number of observations, 16.
-
-```{r Distribution of Status}
-# Visualize the distribution of Status
-ggplot(life, aes(x=Status)) +
-  geom_bar(fill = "blue") +
-  theme_minimal() +
-  labs(title="Distribution of Status", x="Status", y="Count")
-```
-
 Section to describe the data set and explanatory variable.
 
-## EDA
 ### Missing and NA Analysis
-```{r}
+
+```{r , warning=FALSE}
 sapply(life, function(x) sum(is.na(x)))
 missing_count <- life %>% select(-Life.expectancy) %>% sapply(function(x) sum(is.na(x)))
 missing_table <- as.data.frame(missing_count) %>%
@@ -80,48 +62,286 @@ print(missing_table)
 # Adding an ID column to dataframe
 life$ID <- 1:nrow(life)
 
-# Calculate the number of missing values per observation
-life$MissingCount = rowSums(is.na(life))
-
-# Create a new table with ID and MissingCount
-missing_values_summary <- data.frame(ID = life$ID, MissingCount = life$MissingCount)
-
-# Sort the summary table by MissingCount in descending order
+# Create a table of number of missing values per observation
+MissingCount = rowSums(is.na(life))
+missing_values_summary <- data.frame(ID = life$ID, MissingCount = MissingCount)
 missing_values_summary <- missing_values_summary[order(-missing_values_summary$MissingCount), ]
-
-# Display the sorted summary table
 head(missing_values_summary)
 
 ```
 
 Write something about the missing values.....
 
-## Objective 1
+# Objective 1
 
 Purpose: Display the ability to build regression models using the skills and discussions from Unit 1, 2, and 3 with the purpose of identifying key relationships and interpreting those relationships in an organized and clear fashion (Unit 4) .
 
-```{r}
+## EDA
+
+### Distribution of Status
+
+```{r Distribution of Status}
+
+# Calculate counts and percentages
+summary_df <- life %>%
+  group_by(Status) %>%
+  summarise(count = n()) %>%
+  mutate(percentage = round(count / sum(count) * 100, 2),
+         label = paste0(percentage, "%")) %>%
+  ungroup()
+
+# Visualize the distribution of Status with percentages
+ggplot(life, aes(x = Status)) +
+  geom_bar(fill = "peachpuff", aes(y = ..count..)) + # Use ..count.. to get the count for each bar
+  geom_text(data = summary_df, aes(x = Status, y = count/2, label = label), position = position_dodge(width = 0.9), vjust = -0.5) +
+  theme_clean() +
+  labs(title = "Distribution of Status", x = "Status", y = "Number of Observations")
+
+# life$Status_dummy <- ifelse(life$Status == "Developing", 1, 0)
 
 ```
 
-## Objective 2
+Developed 512 17.5% , Developing 2416 82.5%.
 
-Purpose: This objective is to go through a process to compare multiple models with the goal of developing a model that can predict the best and do well on future data. \*Use caret library to help ensure model comparisons are on a “apples to apples” level of comparison.  Consider setting the seed each time you run a new model and perform CV.
+### Number of observations per Country
 
--   Feature Selection
-
-```{r}
-
-```
-
--   Cross-Validation
-
-```{r}
+```{r Distribution and uniqueness of Countries}
+## Create a table with number of observations
+print(table(life$Country))  
 
 ```
 
--   Bootstrapping????
+-   All of the countries have the same number of observations, 16.
+
+### Visualize Life Expectancy over the Years
+
+```{r Plot Life vs Years}
+ggplot(life, aes(x = Year, y = Life.expectancy)) +
+  geom_smooth() +
+  theme_classic() +
+  labs(title = "Life Expectancy Over Years",
+       x = "Year",
+       y = "Life Expectancy")
+
+```
+
+### Visualize Life Expectancy over the Years by Region
+
+```{r Plot LifeVsYears by Region}
+
+# Use the countrycode package to break up the Countries by Region
+life$Region <- as.factor(countrycode(life$Country, "country.name", "region"))
+
+ggplot(life, aes(x = Year, y = Life.expectancy, group = Region, color = Region)) +
+  geom_smooth() +
+  theme_classic() +
+  labs(title = "Life Expectancy Over Years by Region",
+       x = "Year",
+       y = "Life Expectancy") +
+  theme(legend.position = "bottom")
+
+```
+
+There is definitely a trend to consider when considering life expectancy based on which region the person is from. Might consider using a dummy variable to break up region numerically for modeling.
+
+### Checking correlation and variance.
+
+```{r , warning=FALSE}
+
+p <- life %>%
+  select(where(is.numeric), -ID) %>%
+  na.omit() %>%  
+  ggcorr( 
+    label = TRUE, 
+    label_size = 2,
+    label_round = 2,
+    hjust = 1,
+    size = 3, 
+    color = "royalblue",
+    layout.exp = 5,
+    low = "darkorange", 
+    mid = "gray95", 
+    high = "darkorange",
+    name = "Correlation"
+  )
+p + ggtitle("Inter-variable Correlation Matrix ") + theme_gdocs()
+
+# Compute the correlation matrix
+# correlations <- cor(life_numeric)
+# life_expectancy_cor <- correlations["Life.expectancy", ]
+# print(life_expectancy_cor)
+```
+
+Life Expectancy has a strong correlation with Adult Mortality, BMI, HIV/AIDS, Income Composition, Schooling. There is no evidence of a correlation with, Infant Deaths, Hepatitis B, Measles, Population, Total Expenditure, Under Five Deaths.
+
+
+##  Influential Points Analysis
+```{r}
+### Creating model
+### This function is removing the columns Country and Year from the pureData data frame.
+life_selected <- life %>% na.omit(life) %>% 
+                 select(-ID, -Country, -Year) %>% 
+                 mutate(`Hepatitis.B` = ifelse(`Hepatitis.B` < 90, "<90% Covered", ">=90% Covered"),
+                        Polio = ifelse(Polio < 90, "<90% Covered", ">=90% Covered"),
+                        Diphtheria = ifelse(Diphtheria < 90, "<90% Covered", ">=90% Covered"),
+                        `Hepatitis.B` = as.factor(`Hepatitis.B`),
+                        Polio = as.factor(Polio),
+                        Diphtheria = as.factor(Diphtheria))
+
+LEmodel <- lm(`Life.expectancy` ~ ., data = life_selected)
+summary(LEmodel)
+
+# ols_plot_diagnostics(lm_model)
+
+#Check the residuals
+par(mfrow=c(2,2)) # Set up a 2x2 plot grid
+plot(LEmodel, which = 1) # Residuals vs Fitted
+plot(LEmodel, which = 2) # Normal Q-Q
+plot(LEmodel, which = 4) # Cook's distance
+par(mfrow = c(1, 1)) # Set up a 1x1 plot grid
+
+cutoff <- 4/(nrow(life_selected)-length(LEmodel$coefficients)-2)
+plot(LEmodel, which=4, cook.levels=cutoff)
+abline(h=cutoff, lty=2, col="red")
+
+```
+#### Removing Influential Outliers
+
+```{r , warning=FALSE}
+
+```
+
+## Final Basic Linear Regression Model
+
+### Split the Dataset
+Splitting up the data into a training and testing set so that we can compare the different models using the same data.
+```{r}
+#training and test set 80/20 split
+set.seed(1234)
+trainIndex <- createDataPartition(life_selected$`Life.expectancy`, p = .80, list = FALSE)
+train <- life_selected[trainIndex, ]
+test <- life_selected[-trainIndex, ]
+```
+
+```{r , warning=FALSE}
+
+model_train <- lm(`Life.expectancy` ~ ., data = train)
+# Predictions and Evaluation
+predictions <- predict(model_train, newdata = test)
+rmse_value <- sqrt(mean((predictions - test$`Life.expectancy`)^2))
+print(paste("Basic Modle RMSE:",rmse_value))
+
+```
+RMSE for the test set: 3.460996 
+
+# Objective 2
+
+Purpose: This objective is to go through a process to compare multiple models with the goal of developing a model that can predict the best and do well on future data. \*Use caret library to help ensure model comparisons are on a “apples to apples” level of comparison.
+
+### Feature Selection
+
+```{r , warning=FALSE}
+# Add a marker to distinguish between train and test
+train$dataset_type <- 'train'
+test$dataset_type <- 'test'
+
+# Combine the datasets
+combined <- rbind(train, test)
+
+# Apply model.matrix on the combined dataset
+X_combined <- model.matrix(Life.expectancy ~ . - 1 - dataset_type, data = combined)  # Exclude the intercept and dataset_type
+
+# Split the combined matrix back into training and testing sets
+train_indices <- which(combined$dataset_type == 'train')
+test_indices <- which(combined$dataset_type == 'test')
+
+X_train <- X_combined[train_indices, ]
+X_test <- X_combined[test_indices, ]
+
+# Make sure to also create the response vector for training
+y_train <- train$Life.expectancy
+y_test <- test$Life.expectancy
+
+set.seed(1234)
+# Fit LASSO model using glmnet with alpha = 1 (LASSO)
+cv_fit <- cv.glmnet(X_train, y_train, alpha = 1, nfolds = 5)
+# Plot the cross-validated mean squared error for different values of lambda
+plot(cv_fit)
+# Determine the minimal lambda
+optimal_lambda <- cv_fit$lambda.min
+
+coef_opt <- coef(cv_fit, s = optimal_lambda)
+print(coef_opt)
+
+# Fit model with optimal lambda
+lasso_model <- glmnet(X_train, y_train, alpha = 1, lambda = optimal_lambda)
+
+predictions <- predict(lasso_model, newx = X_test, s = optimal_lambda)
+
+# Calculate RMSE on the test set
+rmse_test <- sqrt(mean((predictions - y_test) ^ 2))
+print(paste("Feature RMSE:", rmse_test))
+
+
+```
+Test RMSE: 
+### Cross-Validation
+
+```{r , warning=FALSE}
+set.seed(1234)
+fitControl<-trainControl(method="repeatedcv",number=10,repeats=1) 
+glmnet.fit<-train(Life.expectancy~.,
+               data=life_selected,
+               method="glmnet",
+               trControl=fitControl
+               )
+opt.pen<-glmnet.fit$finalModel$lambdaOpt 
+coef(glmnet.fit$finalModel,opt.pen)
+glmnet.fit
+plot(glmnet.fit)
+
+
+```
+
+### KNN
 
 ```{r}
+prepare_data_for_knn <- function(data) {
+  # Copy the dataset to avoid modifying the original
+  data_processed <- data
+  
+  # Loop over each column
+  for (col_name in names(data_processed)) {
+    # Check if the column is not numeric
+    if (!is.numeric(data_processed[[col_name]])) {
+      # Attempt to convert to numeric
+      numeric_column <- as.numeric(data_processed[[col_name]])
+      
+      # Check if the conversion was successful
+      if (sum(!is.na(numeric_column)) > 0) {
+        # Replace the column with the converted values
+        data_processed[[col_name]] <- numeric_column
+      } else {
+        # Remove the column if it cannot be converted
+        data_processed[[col_name]] <- NULL
+      }
+    }
+  }
+  
+  return(data_processed)
+}
 
+# Using the function to remove all non numeric columns
+life_processed <- prepare_data_for_knn(life_selected)
+
+
+set.seed(1234)
+model_knn1 <- train(Life.expectancy ~ ., data = life_processed,
+                   trControl = trainControl(method = "cv", number = 5),
+                   method = "knn",
+                   tuneGrid = data.frame(k = 3:50),
+                   metric = "RMSE")  
+print(model_knn1)
+#  RMSE       Rsquared   MAE      
+#  8.228571  0.13715446  6.396723
 ```

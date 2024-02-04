@@ -1,0 +1,108 @@
+---
+title: "DS 6372 Project 1"
+author: 'MSDS 6372: Stephanie Duarte'
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+# setwd("~/OneDrive - Southern Methodist University/Git_Website/DS6372_Project1")
+library(ggthemes)
+library(gridExtra)
+library(ggplot2)
+library(GGally)
+library(dplyr)
+library(tidyr)
+library(knitr)
+library(caret)
+library(readr)
+
+```
+
+## Life Expectancy Data Set
+
+```{r}
+life <- read_csv("MSDS_6372/Unit 4/Life Expectancy Data.csv")
+life <- read.csv("Data/Life_Expectancy_Data.csv")
+summary(life)
+sapply(life, class)
+
+```
+#Chceking missing values and gandling missing values
+
+```{r}
+pureData <- na.omit(life)
+na.fail(pureData)
+#Missing values, pure data has zero missing values, good to start analysis
+sum(is.na(pureData))
+#Data Summary, after clearning missing values
+summary(pureData)
+str(pureData)
+
+#Rang of life expectancy is 44 and 89
+range(pureData$"Life expectancy")
+
+```
+
+#Chceking correlation and variance, LE has strong correlation with Schooling&IncomeComposition. LE has negative correlation with Adult Mortality. And weka correlation with populations and measles. Strong correlation between infant death and underfivedeath
+
+```{r}
+data_num <- pureData %>% 
+                             select_if(is.numeric)
+
+ggcorr(data_num, 
+       label = T, 
+       label_size = 2,
+       label_round = 2,
+       hjust = 1,
+       size = 3, 
+       color = "royalblue",
+       layout.exp = 5,
+       low = "green3", 
+       mid = "gray95", 
+       high = "darkorange",
+       name = "Correlation")
+
+
+```
+
+# status for each country developed and developing, added dplyr to avoid R confusion with plyr
+#Developed    242 14.68%    , Developing  1407 85.32% 
+```{r}
+  pureData %>% 
+                 group_by(Status) %>% 
+                 dplyr::summarise(count = n()) %>% 
+                 mutate(percentage = paste0(round(count/sum(count)*100, 2), "%"))
+                 
+###Plot by developed and Developing. I believe there was a grahp done for this.
+
+```
+
+
+```{r}
+#Creating model
+#This function is removing the columns Country and Year from the pureData data frame.
+life_selected <- pureData %>% 
+                 select(-Country, -Year) %>% 
+                 mutate(`Hepatitis B` = ifelse(`Hepatitis B` < 90, "<90% Covered", ">=90% Covered"),
+                        Polio = ifelse(Polio < 90, "<90% Covered", ">=90% Covered"),
+                        Diphtheria = ifelse(Diphtheria < 90, "<90% Covered", ">=90% Covered"),
+                        `Hepatitis B` = as.factor(`Hepatitis B`),
+                        Polio = as.factor(Polio),
+                        Diphtheria = as.factor(Diphtheria))
+
+
+str(life_selected)
+
+LEmodel <- lm(`Life expectancy` ~ ., data = life_selected)
+summary(LEmodel)
+
+#training and test set 80/20 split
+set.seed(1234)
+trainIndex<-createDataPartition(life_selected$"Life expectancy",p=.80,list=F)
+
+train<-life_selected[trainIndex,]
+test<-life_selected[-trainIndex,]
+
+```
