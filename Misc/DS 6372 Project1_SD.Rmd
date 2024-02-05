@@ -81,6 +81,17 @@ ggcorr(data_num,
 
 
 ```{r}
+##Life expectancy Distribution
+#Verifying normality of target variable Life Expectancy, we can see from the plot that LE is not distributed perfectly normal, its little left skewed. 
+par(mfrow=c(1,2))
+hist(pureData$"Life expectancy",
+     main = "Life Expectancy Distribution",
+     xlab = "Life Expectancy(yrs)")
+
+```
+
+
+```{r}
 #Creating model
 #This function is removing the columns Country and Year from the pureData data frame.
 life_selected <- pureData %>% 
@@ -106,3 +117,85 @@ train<-life_selected[trainIndex,]
 test<-life_selected[-trainIndex,]
 
 ```
+
+# Chcekng ouliner, Most of the columns have many outliers except Alcohol, BMI, Income compositionofresources. 
+```{r}
+par(mfrow=c(1,3))
+boxplot(pureData$"Life expectancy",
+        ylab = "Life Expectancy",
+        main = "Boxplot of Life Expectancy")
+
+boxplot(pureData$"Adult Mortality",
+        ylab = "Adult Mortality",
+        main = "Boxplot of Adult Mortality")
+
+boxplot(pureData$Alcohol,
+        ylab = "Alcohol",
+        main = "Boxplot of Alcohol")
+par(mfrow=c(1,3))
+boxplot(pureData$"Hepatitis B",
+        ylab = "Hepatitis B",
+        main = "Boxplot of Hepatitis B")
+
+boxplot(pureData$BMI,
+        ylab = "BMI",
+        main = "Boxplot of BMI")
+
+boxplot(pureData$Polio,
+        ylab = "Polio",
+        main = "Boxplot of Polio")
+par(mfrow=c(1,3))
+boxplot(pureData$"Total expenditure",
+        ylab = "Total Expenditure",
+        main = "Boxplot of Total Expenditure")
+
+boxplot(pureData$"thinness 1-19 years",
+        ylab = "Thinness 1-19 years",
+        main = "Boxplot of Thinness for 1-19 years old")
+boxplot(pureData$"thinness 5-9 years",
+        ylab = "Thinness 5-9 years",
+        main = "Boxplot of Thinness for 5-9 years old")
+par(mfrow=c(1,3))
+boxplot(pureData$"Income composition of resources",
+        ylab = "Income Composition",
+        main = "Boxplot of Income Composition")
+boxplot(pureData$Schooling,
+        ylab = "Schooling",
+        main = "Boxplot of Schooling")
+
+```
+
+
+```{r}
+
+# LE VS Schooling, positively correlated
+# Plotting Life Expectancy vs. Schooling
+plot(y = pureData$`Life expectancy`, x = pureData$Schooling, 
+     main = "Life Expectancy vs. Schooling", 
+     xlab = "Schooling", 
+     ylab = "Life Expectancy", 
+     pch = 19, col = "orange")
+
+#LE vs Adult Morality: negatively correlated
+plot(y = pureData$"Life expectancy",x = pureData$"Adult Mortality",main = "Life Expectancy vs. Adult Mortality",xlab = "Adult Mortality",ylab = "Life Expectancy",pch = 19,col = "yellow")
+
+#LE VS Population, not correlated
+plot(y = pureData$"Life expectancy",x = pureData$Population,main = "Life Expectancy vs. Population",xlab = "Population",
+ylab = "Life Expectancy",pch = 19,col = "red")
+
+
+# life expectancy vs. income composition positively correlated
+plot(y = pureData$"Life expectancy",x = pureData$"Income composition of resources",main = "Life Expectancy vs. Income compositions",
+     xlab = "Income composition of resources",
+     ylab = "Life Expectancy",
+     pch = 19,
+     col = "blue")
+
+```
+
+
+```{r}
+# model created using strong correlated and training data set
+modelLE <- lm(`Life expectancy` ~ Schooling +  `BMI` + `Income composition of resources`+  `HIV/AIDS`, data = train)
+
+summary(modelLE)  

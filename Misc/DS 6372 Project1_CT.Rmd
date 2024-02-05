@@ -1,0 +1,76 @@
+---
+title: "Project1"
+output: html_document
+date: "2024-01-30"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Loading the data sets into R to do EDA
+
+```{r data}
+
+library(readxl)
+Life_Expectancy_Data <- read_excel("Life Expectancy Data.xlsx")
+View(Life_Expectancy_Data)
+
+```
+
+EDA!EDA!EDA
+
+```{r pressure, echo=FALSE}
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+
+View(Life_Expectancy_Data)
+
+summary(Life_Expectancy_Data)
+
+missing_values <- Life_Expectancy_Data%>% summarise(across(everything(),~sum(is.na(.))))
+
+missing_values2 <- Life_Expectancy_Data%>% summarise(across(everything(),~sum(is.na(.))))%>%
+  mutate_all(~ . / nrow(Life_Expectancy_Data) * 100) %>%
+  rename_all(~ paste0(., "_percentage"))
+
+
+print(missing_values)
+print(missing_values2)
+
+
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r, echo=FALSE}
+
+#First model to find important variables
+
+simple.fit<-lm(Life_Expectancy_Data$`Life expectancy`~.,data=Life_Expectancy_Data)
+
+simple.fit.anova <- aov(Life_Expectancy_Data$`Life expectancy`~.,data=Life_Expectancy_Data)
+
+summary(simple.fit.anova)
+
+# 2nd model with those variables
+
+
+simple.fit2<-lm(`Life expectancy`~Schooling+`HIV/AIDS`+`under-five deaths`+Alcohol,data=Life_Expectancy_Data)
+
+print(simple.fit2)
+plot(simple.fit2)
+
+simple.fit.anova2 <- aov(`Life expectancy`~Schooling+`HIV/AIDS`+`under-five deaths`+Alcohol,data=Life_Expectancy_Data)
+
+summary(simple.fit.anova2)
+
+
+
+ggplot(data=Life_Expectancy_Data,aes(x=`Life expectancy`,y=Schooling))+geom_point()+geom_smooth()
+
+
+
+```
