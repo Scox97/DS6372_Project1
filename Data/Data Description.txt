@@ -33,7 +33,7 @@ GDP : Gross Domestic Product per capita (in USD)
 
 Population : Population of the country
 
-thinness 1-19 years : Prevalence of thinness among children and adolescents for Age 10 to 19 (%)
+thinness 1-19 years : Prevalence of thinness among children and adolescents for Age 1 to 19 (%)
 
 thinness 5-9 years : Prevalence of thinness among children for Age 5 to 9(%)
 
