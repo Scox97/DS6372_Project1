@@ -3,9 +3,10 @@ title: "DS6372 Project 1"
 author: "Caleb Thornsbury, Stephanie Duarte, Steven Cox"
 date: "2024-02-02"
 output:
-  html_document: default
+
+  html_document: 
+    fig_caption: true
   # word_document: default
-  # powerpoint_presentation
   # pdf_document:
   #   includes:
   #     in_header: header.tex  # If you have additional LaTeX settings
@@ -15,60 +16,62 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-setwd("~/OneDrive - Southern Methodist University/DS6372/DS6372_Project_1")
-library(knitr)
-library(ggthemes)
-library(gridExtra)
-library(ggplot2)
-library(GGally)
-library(dplyr)
-library(tidyr)
-library(caret)
-library(countrycode)
-library(car)
-library(olsrr)
-library(glmnet)
-library(naniar)
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message=FALSE)
+suppressPackageStartupMessages({
+  library(knitr)
+  library(kableExtra)
+  library(ggthemes)
+  library(gridExtra)
+  library(ggplot2)
+  library(GGally)
+  library(dplyr)
+  library(tidyr)
+  library(caret)
+  library(countrycode)
+  library(car)
+  library(olsrr)
+  library(glmnet)
+  library(naniar)
+  library(lmboot)
+})
+
 
 ```
 
-## Life Expectancy Data Set
-
-```{r, warning=FALSE}
+```{r Clean Column Names, include=FALSE}
 # Custom function to clean up any issues with column names
 processColumnNames <- function(data_frame) {
   # Apply the custom name processing logic to each column name
   modifiedNames <- sapply(names(data_frame), function(name) {
     name <- tolower(name)  # Lowercase all characters
     name <- trimws(name)  # Strip leading and trailing spaces
-    name <- gsub("_+", " ", name)
-    name <- gsub("_", " ", name)
+    name <- gsub("_+", " ", name)  # Replace one or more underscores with a single space
     name <- gsub(" +", " ", name)  # Replace multiple spaces with a single space
     name <- gsub(" ", ".", name)  # Replace single space with a period
+    name <- gsub("\\.{2,}", ".", name)  # Replace sequences of periods with a single period
     return(name)  # Return the modified name
   })
-  
   # Ensure the modified column names are valid R identifiers and unique
   uniqueNames <- make.names(modifiedNames, unique = TRUE)
   names(data_frame) <- uniqueNames # Update the data frame's column names
-  
   return(data_frame)
 }
+```
 
-# Import the CSV file without altering the column names
-life_data <- read.csv("Data/Life Expectancy Data.csv", check.names = FALSE)
+# Life Expectancy Data Set
+
+This section explores the Life Expectancy Data Set. We aim to uncover insights into the factors affecting life expectancy across different predictors
+
+```{r Import Dataset, warning=FALSE}
+life_data <- read.csv(here::here("Data", "Life Expectancy Data.csv"))
 # Clean up any column naming issues
 life_data <- processColumnNames(life_data)
-str(life_data)
-
+kable(head(life_data), caption = "A quick look at the life dataset")
 ```
 
 # Objective 1
 
 Purpose: Display the ability to build regression models using the skills and discussions from Unit 1, 2, and 3 with the purpose of identifying key relationships and interpreting those relationships in an organized and clear fashion (Unit 4) .
-
-## EDA
 
 ## Preliminary Data Wrangling
 
@@ -81,16 +84,13 @@ print(paste("Number of observations missing explanatory variables:", missing))
 life_data <- life_data %>% filter(!is.na(life.expectancy))
 ```
 
-Section to describe the data set and explanatory variable.
-
 ```{r}
 # Check uniqueness of each column
 unique.predictors <- life_data %>% summarise(across(everything(), ~n_distinct(.)))
-print(unique.predictors)
-
+kable(unique.predictors, caption = "Unique variables per variable.")
 # Take a look at the summary of the data set
-summary(life_data)
-dim(life_data)
+# summary(life_data)
+# dim(life_data)
 ```
 
 ### Missing and NA Analysis
@@ -117,119 +117,45 @@ vis_miss(life_data, sort_miss = TRUE)
 
 Write something about the missing values.....
 
-
 This missing data report is crucial in the data cleaning and preprocessing phase of a data analysis pipeline. It helps to inform how to handle the missing values.
 
-### Distribution of Status
-
-```{r Distribution of Status}
-
-# Calculate counts and percentages
-summary_df <- life_data%>%
-  group_by(status) %>%
-  summarise(count = n()) %>%
-  mutate(percentage = round(count / sum(count) * 100, 2),
-         label = paste0(percentage, "%")) %>%
-  ungroup()
-
-# Visualize the distribution of Status with percentages
-ggplot(life_data, aes(x = status)) +
-  geom_bar(fill = "peachpuff", aes(y = after_stat(count))) + 
-  geom_text(data = summary_df, aes(x = status, y = count/2, label = label), 
-            position = position_dodge(width = 0.9), vjust = -0.5) +
-  theme_clean() +
-  labs(title = "Distribution of Status", x = "Status", y = "Number of Observations")
-
-
-```
-
-Developed 17.5% , Developing 82.5%.
-
-
-### Visualize Life Expectancy over the Years
-
-```{r Plot Life vs Years}
-ggplot(life_data, aes(x = year, y = life.expectancy)) +
-  geom_smooth() +
-  theme_classic() +
-  labs(title = "Life Expectancy Over Years",
-       x = "Year",
-       y = "Life Expectancy")
-```
-
-### Number of observations per Country
-
-```{r Distribution and uniqueness of Countries}
-## Create a table with number of observations
-table(life_data$country)
-```
-
--   All of the countries have the same number of observations, 16.
-### Visualize Life Expectancy over the Years by Region
-
-```{r Plot LifeVsYears by Region}
-# Use the country code package to break up the Countries by Region
-life_data$region <- as.factor(countrycode(life_data$country, "country.name", "region"))
-
-ggplot(life_data, aes(x = year, y = life.expectancy, group = region, color = region)) +
-  geom_smooth() +
-  theme_classic() +
-  labs(title = "Life Expectancy Over Years by Region",
-       x = "Year",
-       y = "Life Expectancy") +
-  theme(legend.position = "bottom")
-
-```
-
-
-There is definitely a trend to consider when considering life expectancy based on which region the person is from. Might consider using a dummy variable to break up region numerically for modeling.
-
-### Checking correlation and variance.
-##Visualization on response variable and correlated predictors
+Checking life expectancy vs high missing data correlations
 
 ```{r}
+# Collecting columns names that has missing data
+col_missing_data <- row.names(missing_table)
+# Checking correlation between the selected columns and life.expectancy
+missing_cor <- cor(life_data[col_missing_data], 
+  life_data[["life.expectancy"]], use = "complete.obs")
+# Convert table to df so we can merge with the missing table
+missing_cor <- data.frame(name =  rownames(missing_cor), Correlation = missing_cor)
 
-ggplot(data = life_data, aes(x = life.expectancy)) + 
-  geom_histogram(binwidth = 1, fill = "lightblue", color = "black") + 
-  labs(title = "Histogram of Life Expectancy", x = "Life Expectancy", y = "count") +
-  theme_minimal()
+missing_table$name <- rownames(missing_table)
+missing_cor <- merge(missing_cor, missing_table, by = "name")
+# We are only concerned with correlation, so taking absolute value
+missing_cor$Correlation <- abs(missing_cor$Correlation)
+# Arrange and display the table
+missing_cor <- arrange(missing_cor, desc(Correlation))
+kable(missing_cor, caption = "Missing Value Counts (Descending Order)", align = "c")
 
-ggplot(data = life_data, aes(y = life.expectancy, x = schooling)) +
-  geom_point(color = "blue") +
-  geom_smooth()+
-  labs(title = "Distribution of Schooling",
-       y = "Life Expectancy",
-       x = "Number of Years of Schooling")
-
-ggplot(data = life_data, aes(y = life.expectancy, x = adult.mortality)) +
-  geom_point(color = "coral") +
-  geom_smooth()+
-  labs(title = "Distribution of Adult Mortality Rates",
-       y = "Life Expectancy",
-       x = "Adult Mortality")
-
-ggplot(data = life_data, aes(y = life.expectancy, x = income.composition.of.resources)) +
-  geom_point(color = "darkcyan") +
-  geom_smooth()+
-  labs(title = "Distribution of Income Composition of Resources",
-       y = "Life Expectancy",
-       x = "Income Composition of Resources")
-
-ggplot(data = life_data, aes(y = life.expectancy, x = hiv.aids)) +
-  geom_point(color = "plum2") +
-  geom_smooth()+
-  labs(title = "Distribution of HIV/AIDS",
-       y = "Life Expectancy",
-       x = "HIV/AIDS) (per 1000 live births)")
+cor_threshold = 0.6 # Our determined threshold for what is correlated
+filtered_corr <- missing_cor[missing_cor$Correlation < cor_threshold, ]
+columns_to_remove <- filtered_corr$name
+# Remove the columns from the data frame
+life_filtered <- life_data[,!(names(life_data) %in% columns_to_remove)]
+life_filtered$missing <- NULL
+# revisit missing data with filtered data frame
+sapply(life_filtered, function(x) sum(is.na(x)))
+# Checking to see if all 160 remaining missing vars are the same observations
+sum(is.na(life_filtered$income) & is.na(life_filtered$schooling))
+# Removing additional missing data 
+life_filtered <- life_filtered %>% na.omit()
 
 ```
 
-
 ```{r , warning=FALSE}
-life_numeric <-  life_data %>%
-  select(where(is.numeric)) %>% na.omit()
 
-life_numeric %>%
+life_filtered %>%
   ggcorr(
     label = TRUE,
     label_size = 2,
@@ -239,12 +165,14 @@ life_numeric %>%
     color = "royalblue",
     layout.exp = 5,
     low = "darkorange",
-    mid = "gray95",
+    mid = "white",
     high = "darkorange",
     name = "Correlation") + 
   ggtitle("Inter-variable Correlation Matrix ") + theme_gdocs()
 
 ## Gather variable pairs that have a correlation greater than 0.8, as that could be an indication of multicollinearity. 
+life_numeric <-  life_filtered %>%
+  select(where(is.numeric)) %>% na.omit()
 cor_matrix <- cor(life_numeric)
 cor_pairs <- function(cor_matrix, threshold = 0.8) {
   cor_matrix[lower.tri(cor_matrix)] <- NA  # Mask lower triangle to avoid duplicate pairs
@@ -259,41 +187,121 @@ cor_pairs <- function(cor_matrix, threshold = 0.8) {
 }
 ## View the significant pairs with high correlation
 print(cor_pairs(cor_matrix))
-life_data$infant.deaths <- NULL
-life_data$thinness.5.9.years <- NULL
+life_filtered$infant.deaths <- NULL
 
 ```
 
-Checking life expectancy vs high missing data correlations
-```{r}
-print(missing_table)
-# Select only the relevant columns
-high_missing <- life_data[c(
-  "life.expectancy", "population", "hepatitis.b", "gdp", "total.expenditure",
-  "alcohol", "income.composition.of.resources", "schooling",  "bmi", 
-  "thinness.1.19.years", "polio", "diphtheria")]
+### Distribution of Status
 
-# Calculate the correlation between life.expectancy and each of the predictors
-# minus the first column which is comparing itself.
-correlations <- cor(high_missing[, -1], high_missing[["life.expectancy"]], use = "complete.obs")
-correlations_df <- data.frame(name =  rownames(correlations), Correlation = correlations)
-missing_table$name <- rownames(missing_table)
-correlations_df <- merge(correlations_df, missing_table, by = "name")
-print(correlations_df)
+```{r Distribution of Status, warning=FALSE}
 
-filtered_corr <- correlations_df[correlations_df$Correlation < 0.6, ]
-columns_to_remove <- filtered_corr$name
-# Remove the columns from the data frame
-life_filtered <- life_data[,!(names(life_data) %in% columns_to_remove)]
-sapply(life_filtered, function(x) sum(is.na(x)))
+# Calculate counts and percentages
+summary_df <- life_filtered%>%
+  group_by(status) %>%
+  summarise(count = n()) %>%
+  mutate(percentage = round(count / sum(count) * 100, 2),
+         label = paste0(percentage, "%")) %>%
+  ungroup()
 
-# Removing additional missing data (because Time)
-life_filtered <- life_filtered %>% na.omit()
+# Visualize the distribution of Status with percentages
+ggplot(life_filtered, aes(x = status)) +
+  geom_bar(fill = "peachpuff", aes(y = after_stat(count))) + 
+  geom_text(data = summary_df, aes(x = status, y = count/2, label = label), 
+            position = position_dodge(width = 0.9), vjust = -0.5) +
+  theme_clean() +
+  labs(title = "Distribution of Status", x = "Status", y = "Number of Observations")
+
+
+ggplot(life_filtered, aes(x = status, y = life.expectancy)) +
+  geom_boxplot(fill = "peachpuff") +
+  labs(x = "Status", y = "Life Expectancy") +
+  theme_minimal() +
+  coord_flip()  # Rotate the plot
+
 
 ```
 
+Developed 17% , Developing 83%.
 
-Life Expectancy has a strong correlation with Adult Mortality, BMI, HIV/AIDS, Income Composition, Schooling. There is no evidence of a correlation with, Infant Deaths, Hepatitis B, Measles, Population, Total Expenditure, Under Five Deaths.
+### Visualize Life Expectancy over the Years
+
+```{r Plot Life vs Years, warning=FALSE}
+ggplot(life_filtered, aes(x = year, y = life.expectancy)) +
+  geom_smooth() +
+  theme_classic() +
+  labs(title = "Life Expectancy Over Years",
+       x = "Year",
+       y = "Life Expectancy")
+```
+
+### Number of observations per Country
+
+```{r Distribution and uniqueness of Countries, results='hide'}
+## Create a table with number of observations
+table(life_filtered$country)
+```
+
+-   All of the countries have the same number of observations, 16. \### Visualize Life Expectancy over the Years by Region
+
+```{r Plot LifeVsYears by Region, warning=FALSE}
+# Use the country code package to break up the Countries by Region
+life_filtered$region <- as.factor(countrycode(life_filtered$country, "country.name", "region"))
+
+ggplot(life_filtered, aes(x = year, y = life.expectancy, group = region, color = region)) +
+  geom_smooth() +
+  theme_classic() +
+  labs(title = "Life Expectancy Over Years by Region",
+       x = "Year",
+       y = "Life Expectancy") +
+  theme(legend.position = "bottom")
+
+```
+
+There is definitely a trend to consider when considering life expectancy based on which region the person is from. Might consider using a dummy variable to break up region numerically for modeling.
+
+### Checking correlation and variance.
+
+##Visualization on response variable and correlated predictors
+
+```{r , warning=FALSE}
+
+ggplot(data = life_filtered, aes(x = life.expectancy)) + 
+  geom_histogram(binwidth = 1, fill = "lightblue", color = "black") + 
+  labs(title = "Histogram of Life Expectancy", x = "Life Expectancy", y = "count") +
+  theme_minimal()
+
+ggplot(data = life_filtered, aes(y = life.expectancy, x = schooling)) +
+  geom_point(color = "blue") +
+  geom_smooth(color="red")+
+  theme_clean()+
+  labs(title = "Distribution of Schooling",
+       y = "Life Expectancy",
+       x = "Number of Years of Schooling")
+
+ggplot(data = life_filtered, aes(y = life.expectancy, x = adult.mortality)) +
+  geom_point(color = "coral") +
+  geom_smooth(color="red")+
+  theme_clean()+
+  labs(title = "Distribution of Adult Mortality Rates",
+       y = "Life Expectancy",
+       x = "Adult Mortality")
+
+ggplot(data = life_filtered, aes(y = life.expectancy, x = income.composition.of.resources)) +
+  geom_point(color = "darkcyan") +
+  geom_smooth(color="red")+
+  theme_clean()+
+  labs(title = "Distribution of Income Composition of Resources",
+       y = "Life Expectancy",
+       x = "Income Composition of Resources")
+
+ggplot(data = life_filtered, aes(y = life.expectancy, x = hiv.aids)) +
+  geom_point(color = "lightgreen") +
+  geom_smooth(color="red")+
+  theme_clean()+
+  labs(title = "Distribution of Income Composition of Resources",
+       y = "Life Expectancy",
+       x = "Income Composition of Resources")
+```
 
 ## Preparing data set for modeling
 
@@ -303,11 +311,11 @@ life_filtered$status <- as.factor(life_filtered$status)
 
 ```
 
-
-```{r, initial_investigative_model, echo=FALSE}
+```{r, initial_investigative_model, echo=FALSE, warning=FALSE}
 #First model to find important variables
 simple.fit <-lm(life.expectancy ~ ., data = life_filtered)
 summary(simple.fit)
+vif(simple.fit)
 
 simple.fit.anova <- aov(simple.fit)
 summary(simple.fit.anova)
@@ -354,14 +362,13 @@ ols_plot_diagnostics(simple.fit2)
 
 ```
 
-
 ## Final Basic Linear Regression Model
 
 ### Split the Dataset
 
 Splitting up the data into a training and testing set so that we can compare the different models using the same data.
 
-```{r}
+```{r, warning=FALSE}
 #training and test set 80/20 split
 
 set.seed(1234)
@@ -384,15 +391,16 @@ rmse_value <- sqrt(mean((predictions - test$life.expectancy)^2))
 print(paste("Basic Model RMSE:",rmse_value))
 
 ```
+
 RMSE for the test set: 3.81
 
 # Objective 2
 
 Purpose: This objective is to go through a process to compare multiple models with the goal of developing a model that can predict the best and do well on future data. \*Use caret library to help ensure model comparisons are on a “apples to apples” level of comparison.
 
-
 ### Feature Selection
-```{r}
+
+```{r, warning=FALSE}
 
 set.seed(1234)
 fitControl<-trainControl(method="repeatedcv",number=10,repeats=1) 
@@ -424,11 +432,12 @@ rmse_value <- sqrt(mean((predictions - test$life.expectancy)^2))
 print(paste("Feature Model RMSE:",rmse_value))
 
 ```
+
 Feature Model RMSE: 3.78
 
-
 ### 10-fold cross validation to determine an appropriate $k$
-```{r}
+
+```{r, warning=FALSE}
 
 set.seed(1234)  # Set the seed for reproducibility
 
@@ -456,12 +465,13 @@ print(knn_fit)
 # par(mfrow=c(2, 2)) # Set up the plotting area to display multiple plots
 # plot(knn_fit)
 ```
+
 KNN Model RMSE 2.27
 
-
 BOOTSTRAPPING
-```{r}
-library(lmboot)
+
+```{r, warning=FALSE}
+
 #residual bootstrapping
 boot.res<-residual.boot(new_formula,data=life_filtered,B=10000,seed=1234)
 t(apply(boot.res$bootEstParam,2,quantile,probs=c(.025,.975)))
@@ -472,7 +482,15 @@ t(apply(boot.p$bootEstParam,2,quantile,probs=c(.025,.975)))
 
 ```
 
+# Appendix A
 
-```{r}
+```{r Appendix_A, warning=FALSE}
+
+# ggplot(life_filtered, aes(x = year, y = life.expectancy, group = country, color = country)) +
+#   geom_smooth() +
+#   theme_classic() +
+#   labs(title = "Life Expectancy Over Years by Country",
+#        x = "Year",
+#        y = "Life Expectancy") +
+#   theme(legend.position = "none")
 ```
-
