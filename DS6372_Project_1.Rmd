@@ -3,13 +3,12 @@ title: "DS6372 Project 1"
 author: "Caleb Thornsbury, Stephanie Duarte, Steven Cox"
 date: "2024-02-02"
 output:
-
   html_document: 
     fig_caption: true
   # word_document: default
   # pdf_document:
   #   includes:
-  #     in_header: header.tex  # If you have additional LaTeX settings
+  #     in_header: header.tex  
   #   keep_tex: true
   #   latex_engine: xelatex
   #   geometry: "left=1cm,right=1cm,top=1cm,bottom=1cm" 
@@ -84,7 +83,8 @@ print(paste("Number of observations missing explanatory variables:", missing))
 life_data <- life_data %>% filter(!is.na(life.expectancy))
 ```
 
-```{r}
+```{r , warning=FALSE}
+
 # Check uniqueness of each column
 unique.predictors <- life_data %>% summarise(across(everything(), ~n_distinct(.)))
 kable(unique.predictors, caption = "Unique variables per variable.")
@@ -115,13 +115,13 @@ vis_miss(life_data, sort_miss = TRUE)
 
 ```
 
-Write something about the missing values.....
 
 This missing data report is crucial in the data cleaning and preprocessing phase of a data analysis pipeline. It helps to inform how to handle the missing values.
 
 Checking life expectancy vs high missing data correlations
 
-```{r}
+```{r , warning=FALSE}
+
 # Collecting columns names that has missing data
 col_missing_data <- row.names(missing_table)
 # Checking correlation between the selected columns and life.expectancy
@@ -236,7 +236,7 @@ ggplot(life_filtered, aes(x = year, y = life.expectancy)) +
 
 ### Number of observations per Country
 
-```{r Distribution and uniqueness of Countries, results='hide'}
+```{r Distribution and uniqueness of Countries, results='hide', warning=FALSE}
 ## Create a table with number of observations
 table(life_filtered$country)
 ```
@@ -298,14 +298,14 @@ ggplot(data = life_filtered, aes(y = life.expectancy, x = hiv.aids)) +
   geom_point(color = "lightgreen") +
   geom_smooth(color="red")+
   theme_clean()+
-  labs(title = "Distribution of Income Composition of Resources",
+  labs(title = "Distribution of HIV/AIDS",
        y = "Life Expectancy",
        x = "Income Composition of Resources")
 ```
 
 ## Preparing data set for modeling
 
-```{r}
+```{r, warning=FALSE}
 life_filtered$country <- NULL
 life_filtered$status <- as.factor(life_filtered$status)
 
@@ -467,6 +467,12 @@ print(knn_fit)
 ```
 
 KNN Model RMSE 2.27
+
+# Table of RMSE results
+```{r, results='asis'}
+model_data <- data.frame( Model = c("MLN", "Feature Selection (Glmnet)", "KNN 10 Fold"), RMSE = c(3.81, 3.78, 2.27) )
+kable(model_data, caption = "Model Performance Comparison", align = c('l', 'r'))
+```
 
 BOOTSTRAPPING
 
